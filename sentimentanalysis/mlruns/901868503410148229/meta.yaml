@@ -1,6 +1,0 @@
-artifact_location: file:///home/thanasisdr/github_repos/trustpilot_mle_assignment/sentimentanalysis/mlruns/901868503410148229
-creation_time: 1733064592466
-experiment_id: '901868503410148229'
-last_update_time: 1733064592466
-lifecycle_stage: active
-name: sentiment_analysis_reviews
