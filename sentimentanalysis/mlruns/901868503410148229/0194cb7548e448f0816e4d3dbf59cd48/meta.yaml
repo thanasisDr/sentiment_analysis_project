@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thanasisdr/github_repos/trustpilot_mle_assignment/sentimentanalysis/mlruns/901868503410148229/0194cb7548e448f0816e4d3dbf59cd48/artifacts
+end_time: 1733064600109
+entry_point_name: ''
+experiment_id: '901868503410148229'
+lifecycle_stage: active
+run_id: 0194cb7548e448f0816e4d3dbf59cd48
+run_name: unequaled-dog-246
+run_uuid: 0194cb7548e448f0816e4d3dbf59cd48
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1733064592941
+status: 3
+tags: []
+user_id: thanasisdr
