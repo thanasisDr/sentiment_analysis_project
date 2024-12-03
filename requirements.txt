@@ -1,0 +1,11 @@
+pandas
+matplotlib
+seaborn
+mlflow
+scikit-learn
+nltk
+fastapi
+pydantic
+uvicorn
+prometheus_fastapi_instrumentator
+python-dotenv
