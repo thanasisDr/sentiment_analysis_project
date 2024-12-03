@@ -29,7 +29,7 @@ app = FastAPI()
 
 try:
     model_path = (
-        "./mlruns/901868503410148229/294361cd3b1149efb241e34d7595ef74/artifacts/model"
+        "./mlruns/596370538489019037/fbcb4f82232146a3ac1ba6322ce6ac20/artifacts/model"
     )
     if model_path:
         model = mlflow.sklearn.load_model(model_path)
