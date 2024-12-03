@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thanasisdr/github_repos/sentiment_analysis_project/sentimentanalysis/mlruns/596370538489019037/fbcb4f82232146a3ac1ba6322ce6ac20/artifacts
+end_time: 1733266533603
+entry_point_name: ''
+experiment_id: '596370538489019037'
+lifecycle_stage: active
+run_id: fbcb4f82232146a3ac1ba6322ce6ac20
+run_name: unique-pig-397
+run_uuid: fbcb4f82232146a3ac1ba6322ce6ac20
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1733266527108
+status: 3
+tags: []
+user_id: thanasisdr
