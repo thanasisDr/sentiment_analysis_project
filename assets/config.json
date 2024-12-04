@@ -1,6 +1,6 @@
 {"local": {
-    "raw_data_path": "/home/thanasisdr/github_repos/sentiment_analysis_project/data/Books_10k.zip",
-    "data_path": "/home/thanasisdr/github_repos/sentiment_analysis_project/data/Books_10k.csv",
+    "raw_data_path": "<USER_PATH>/sentiment_analysis_project/data/Books_10k.zip",
+    "data_path": "<USER_PATH>/sentiment_analysis_project/data/Books_10k.csv",
     "experiment_name": "sentiment_analysis_reviews"
   },
   "dev": {
