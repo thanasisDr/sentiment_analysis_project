@@ -25,9 +25,20 @@ This project is a sentiment analysis project using the Amazon Book Reviews datas
      ```bash
      pip install -r requirements.txt
      ```
+3. **Train the model locally**:
+   - Create a .env file with the following variables:
+      ENVIRONMENT=local
+      CONFIG_PATH=PATH_TO_CONFIG_FILE
+   - Update the path to the data files in the assets/config.json file
+   - Run the data preparation  and training pipelines
+     ```bash
+     cd sentiment_analysis_project/sentimentanalysis
+     python data_preparation_pipeline.py
+     python training_pipeline
+     ```
 
 3. **Run the Application**:
-   - Start the FastAPI server using Uvicorn:
+
      ```bash
      cd sentiment_analysis_project/sentimentanalysis
      python app.py
@@ -37,6 +48,7 @@ This project is a sentiment analysis project using the Amazon Book Reviews datas
 
 Run tests using pytest:
 ```bash
+pip install -r requirements_dev.txt
 cd sentiment_analysis_project
 pytest
 ```

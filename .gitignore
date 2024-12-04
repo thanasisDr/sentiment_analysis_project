@@ -727,3 +727,4 @@ cython_debug/
 # project specific
 .vscode
 tests-results.xml
+.env
