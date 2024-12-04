@@ -34,7 +34,7 @@ This project is a sentiment analysis project using the Amazon Book Reviews datas
      ```bash
      cd sentiment_analysis_project/sentimentanalysis
      python data_preparation_pipeline.py
-     python training_pipeline
+     python training_pipeline.py
      ```
 
 3. **Run the Application**:
