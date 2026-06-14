@@ -728,3 +728,7 @@ cython_debug/
 .vscode
 tests-results.xml
 .env
+
+# MLflow local stores (tracking DB + artifacts) — should live in a backend store
+mlflow.db
+mlartifacts/

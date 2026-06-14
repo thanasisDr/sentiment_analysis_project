@@ -74,8 +74,9 @@ def train_model(
     """
     client = MlflowClient()
 
-    # Get parsed experiment name
+    # Get parsed experiment name and the name the model is registered under
     experiment_name = configuration["experiment_name"]
+    registered_model_name = configuration["registered_model_name"]
 
     # Create MLflow experiment
     try:
@@ -111,12 +112,29 @@ def train_model(
         # Log the metrics
         mlflow.log_metrics(test_metrics)
 
-        # Save the model
-        mlflow.sklearn.log_model(model, artifact_path="model")
+        # Save the model and register a new version in the MLflow Model Registry.
+        # Registering decouples the serving app from any specific run id: the app
+        # resolves the model via "models:/<name>@<alias>" instead of a hardcoded
+        # run path that changes on every retrain.
+        model_info = mlflow.sklearn.log_model(
+            sk_model=model,
+            name="model",
+            registered_model_name=registered_model_name,
+        )
 
-        # Get the model URI
-        model_uri = mlflow.get_artifact_uri("model")
-        logger.info(f"The model saved in {model_uri}")
+        # Promote the freshly trained version to the "champion" alias so the
+        # serving app always loads the latest blessed model.
+        client.set_registered_model_alias(
+            name=registered_model_name,
+            alias="champion",
+            version=model_info.registered_model_version,
+        )
+
+        logger.info(
+            f"Registered '{registered_model_name}' "
+            f"v{model_info.registered_model_version} as 'champion' "
+            f"(logged at {model_info.model_uri})"
+        )
 
 
 def main():
@@ -134,6 +152,11 @@ def main():
     with open(config_path, "r") as fin:
         configuration = json.load(fin)
     configuration = configuration[env]
+
+    # Point MLflow at a registry-capable backend. The default file store
+    # (file:./mlruns) does NOT support the Model Registry, so we fall back to a
+    # local SQLite store unless an MLFLOW_TRACKING_URI is provided.
+    mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"))
 
     # Read the data
     data = get_data(configuration)
