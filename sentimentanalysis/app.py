@@ -5,6 +5,8 @@ The app can be started by running `uvicorn app:app --reload`.
 """
 
 import logging
+import os
+from contextlib import asynccontextmanager
 
 import mlflow
 import pandas as pd
@@ -25,28 +27,55 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+# Model resolution is configured entirely through the environment so the same
+# image can be promoted across environments without code changes. The model is
+# loaded from the MLflow Model Registry via "models:/<name>@<alias>", which
+# decouples serving from any specific training run id.
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
+MODEL_NAME = os.getenv("MODEL_NAME", "sentiment_analysis_clf")
+MODEL_ALIAS = os.getenv("MODEL_ALIAS", "champion")
+MODEL_URI = f"models:/{MODEL_NAME}@{MODEL_ALIAS}"
 
-try:
-    model_path = (
-        "./mlruns/596370538489019037/fbcb4f82232146a3ac1ba6322ce6ac20/artifacts/model"
-    )
-    if model_path:
-        model = mlflow.sklearn.load_model(model_path)
-        logger.info("Model loaded successfully.")
-    else:
-        logger.error("Model path is not set.")
-        raise HTTPException(status_code=500, detail="Model path is not set")
-except mlflow.exceptions.MlflowException as e:
-    logger.error(f"MlflowException: {e}")
-    raise HTTPException(
-        status_code=500, detail="Failed to load model due to Mlflow error"
-    )
-except Exception as e:
-    logger.error(f"Unexpected error: {e}")
-    raise HTTPException(
-        status_code=500, detail="Failed to load model due to unexpected error"
-    )
+# Holds the loaded model for the lifetime of the process. Populated on startup.
+ml_models: dict = {}
+
+
+def load_model():
+    """
+    Load the serving model from the MLflow Model Registry.
+
+    Returns
+    -------
+    The loaded scikit-learn model.
+
+    Raises
+    ------
+    Exception
+        If the model cannot be resolved or loaded, so the app fails fast on
+        startup instead of accepting traffic it cannot serve.
+    """
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    logger.info(f"Loading model from {MODEL_URI} (tracking: {MLFLOW_TRACKING_URI})")
+    model = mlflow.sklearn.load_model(MODEL_URI)
+    logger.info("Model loaded successfully.")
+    return model
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Load the model once on startup and keep it in memory for every request.
+
+    Loading at startup (rather than import time) lets the app fail fast with a
+    clear error, keeps prediction latency low, and plays well with the ASGI
+    lifecycle and test clients.
+    """
+    ml_models["sentiment"] = load_model()
+    yield
+    ml_models.clear()
+
+
+app = FastAPI(lifespan=lifespan)
 
 Instrumentator().instrument(app).expose(app)
 
@@ -92,7 +121,8 @@ async def predict(input_data: PredictionInput) -> dict[str, str]:
     # Create a DataFrame with the input text
     df = pd.DataFrame({"text": [input_data.text]})
 
-    # Check if the model is not None
+    # Check if the model has been loaded
+    model = ml_models.get("sentiment")
     if model is None:
         raise HTTPException(status_code=500, detail="Model is not initialized")
 

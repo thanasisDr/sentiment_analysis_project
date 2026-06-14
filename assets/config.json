@@ -1,21 +1,25 @@
 {"local": {
     "raw_data_path": "<USER_PATH>/sentiment_analysis_project/data/Books_10k.zip",
     "data_path": "<USER_PATH>/sentiment_analysis_project/data/Books_10k.csv",
-    "experiment_name": "sentiment_analysis_reviews"
+    "experiment_name": "sentiment_analysis_reviews",
+    "registered_model_name": "sentiment_analysis_clf"
   },
   "dev": {
     "raw_data_path": "RAW_DATA_PATH_DEV",
     "data_path": "DATA_PATH_DEV",
-    "experiment_name": "EXPERIMENT_NAME_DEV"
+    "experiment_name": "EXPERIMENT_NAME_DEV",
+    "registered_model_name": "REGISTERED_MODEL_NAME_DEV"
   },
   "stg": {
     "raw_data_path": "RAW_DATA_PATH_STG",
     "data_path": "DATA_PATH_STG",
-    "experiment_name": "EXPERIMENT_NAME_STG"
+    "experiment_name": "EXPERIMENT_NAME_STG",
+    "registered_model_name": "REGISTERED_MODEL_NAME_STG"
   },
   "prd": {
     "raw_data_path": "RAW_DATA_PATH_PRD",
     "data_path": "DATA_PATH_PRD",
-    "experiment_name": "EXPERIMENT_NAME_PRD"
+    "experiment_name": "EXPERIMENT_NAME_PRD",
+    "registered_model_name": "REGISTERED_MODEL_NAME_PRD"
   }
 }

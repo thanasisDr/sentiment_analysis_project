@@ -6,3 +6,4 @@ coverage
 black
 pytest-mock
 isort
+httpx
