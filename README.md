@@ -20,11 +20,22 @@ This project is a sentiment analysis project using the Amazon Book Reviews datas
    ```
 
 2. **Install Dependencies**:
-   - Create and activate a virtual environment.
-   - Install the required packages:
-     ```bash
-     pip install -r requirements.txt
-     ```
+
+   Dependencies are managed with [uv](https://docs.astral.sh/uv/). A single
+   `pyproject.toml` is the source of truth and `uv.lock` pins every package
+   (and transitive dependency) to an exact, reproducible version. The pinned
+   Python interpreter is recorded in `.python-version`.
+
+   ```bash
+   # Creates a .venv at the pinned Python, installs runtime + dev deps from the lock
+   uv sync
+
+   # Add the training/data-prep deps too (needed to run the pipelines below)
+   uv sync --group training
+   ```
+
+   Prefix commands with `uv run` to execute them inside the synced environment
+   (e.g. `uv run python app.py`), or activate `.venv` directly.
 3. **Train the model locally**:
    - Create a .env file with the following variables:
       ```
@@ -104,11 +115,10 @@ Interactive API docs are also available at `http://127.0.0.1:8000/docs`.
 
 ## Testing
 
-Run tests using pytest:
+Run tests using pytest (dev dependencies are installed by `uv sync`):
 ```bash
-pip install -r requirements_dev.txt
 cd sentiment_analysis_project
-pytest
+uv run pytest
 ```
 
 ## Development
