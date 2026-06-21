@@ -113,6 +113,34 @@ curl -s http://127.0.0.1:8000/metrics | grep http_request
 
 Interactive API docs are also available at `http://127.0.0.1:8000/docs`.
 
+## Running in Docker
+
+The service ships as a multi-stage, non-root image. **Build from the repository
+root** (the build context needs `pyproject.toml` / `uv.lock`):
+
+```bash
+docker build -t sentiment-analysis:local .
+```
+
+The build installs the exact locked dependencies (`uv sync --frozen`) into a
+virtualenv in a builder stage and copies only that venv plus the application
+source into the final image — `mlruns/`, `mlflow.db`, `data/`, `.git`, and caches
+are excluded via `.dockerignore`.
+
+The image does **not** bake in a model; it loads one at runtime from the MLflow
+registry you point it at, so supply the registry config as environment:
+
+```bash
+docker run --rm -p 8000:8000 \
+  -e MLFLOW_TRACKING_URI=<your-tracking-uri> \
+  -e MODEL_NAME=sentiment_analysis_clf \
+  -e MODEL_ALIAS=champion \
+  sentiment-analysis:local
+```
+
+(A self-contained local stack with a tracking server comes in a later phase; see
+`docs/enterprise-infra-plan.md`.)
+
 ## Testing
 
 Run tests using pytest (dev dependencies are installed by `uv sync`):

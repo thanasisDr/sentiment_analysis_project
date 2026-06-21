@@ -1,0 +1,48 @@
+# Build context = repo root. Keep it small and keep secrets / large local
+# artifacts out of the image. The Dockerfile copies only pyproject.toml,
+# uv.lock, and sentimentanalysis/ — these patterns also stop the
+# `COPY sentimentanalysis/` step from dragging in nested junk.
+
+# Version control & CI
+.git/
+.gitignore
+.github/
+
+# Python caches and virtualenvs
+**/__pycache__/
+**/*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local MLflow store & model artifacts — the image loads from a configured
+# registry (MLFLOW_TRACKING_URI), it must not bake in the local SQLite store.
+**/mlruns/
+**/mlflow.db
+**/mlartifacts/
+
+# Datasets & large assets — not needed to serve
+data/
+assets/
+
+# Docs and project meta
+docs/
+*.md
+LICENSE
+
+# Tests (not shipped in the serving image)
+test/
+
+# Local environment / secrets
+.env
+*.env
+!.env.example
+
+# Editor / OS cruft
+.DS_Store
+.idea/
+.vscode/
