@@ -12,19 +12,19 @@ import mlflow
 import pandas as pd
 import uvicorn
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
 
-LOGGING_MSG_FORMAT = (
-    "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
-)
-LOGGING_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+# Configure structured JSON logging for the whole process. Importable both as a
+# top-level module (serving: WORKDIR is the package dir) and as a package module
+# (tests: from the repo root), so try both.
+try:
+    from logging_config import configure_logging
+except ModuleNotFoundError:  # pragma: no cover - import-path shim
+    from sentimentanalysis.logging_config import configure_logging
 
-logging.basicConfig(
-    level="INFO",
-    format=LOGGING_MSG_FORMAT,
-    datefmt=LOGGING_DATE_FORMAT,
-)
+configure_logging()
 logger = logging.getLogger(__name__)
 
 # Model resolution is configured entirely through the environment so the same
@@ -38,6 +38,11 @@ MODEL_URI = f"models:/{MODEL_NAME}@{MODEL_ALIAS}"
 
 # Holds the loaded model for the lifetime of the process. Populated on startup.
 ml_models: dict = {}
+
+# Readiness flag for the /health/ready probe. Flips to True only once the model
+# is loaded, and back to False on shutdown, so orchestrators route traffic to a
+# replica only when it can actually serve predictions.
+service_state: dict = {"ready": False}
 
 
 def load_model():
@@ -69,9 +74,15 @@ async def lifespan(app: FastAPI):
     Loading at startup (rather than import time) lets the app fail fast with a
     clear error, keeps prediction latency low, and plays well with the ASGI
     lifecycle and test clients.
+
+    Readiness flips True only after the model is in memory and False again on
+    shutdown. On SIGTERM the ASGI server stops accepting new connections and
+    drains in-flight requests before this teardown runs (graceful shutdown).
     """
     ml_models["sentiment"] = load_model()
+    service_state["ready"] = True
     yield
+    service_state["ready"] = False
     ml_models.clear()
 
 
@@ -99,6 +110,33 @@ async def root():
         dict: A dictionary containing a welcome message.
     """
     return {"message": "This is a sentiment analysis app for book reviews"}
+
+
+@app.get("/health/live")
+async def health_live() -> dict[str, str]:
+    """
+    Liveness probe: is the process up and the event loop responsive?
+
+    Always returns 200 while the app can answer. It deliberately does *not*
+    check the model — a liveness failure tells an orchestrator to restart the
+    pod, and a missing model is not fixed by a restart. Kubernetes maps this to
+    `livenessProbe`.
+    """
+    return {"status": "alive"}
+
+
+@app.get("/health/ready")
+async def health_ready():
+    """
+    Readiness probe: can this replica serve predictions right now?
+
+    Returns 200 only after the model has loaded, otherwise 503 so the
+    orchestrator keeps the replica out of the load-balancer rotation (and holds
+    a rolling deploy) until it is ready. Kubernetes maps this to `readinessProbe`.
+    """
+    if service_state["ready"] and ml_models.get("sentiment") is not None:
+        return {"status": "ready"}
+    return JSONResponse(status_code=503, content={"status": "not_ready"})
 
 
 @app.post("/predict")

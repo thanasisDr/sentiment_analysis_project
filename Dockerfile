@@ -73,12 +73,14 @@ USER 10001
 
 EXPOSE 8000
 
-# Container-level liveness probe. Kubernetes uses its own probes (Phase 0 item 4
-# adds /health/ready), but this gives Docker/Compose a signal today. Uses the
-# stdlib so the slim image needs no curl. start-period covers model load on boot.
+# Container-level readiness probe. Kubernetes uses its own probes against the
+# same endpoint, but this gives Docker/Compose a signal today: /health/ready
+# returns 200 only once the model has loaded (503 otherwise). Uses the stdlib so
+# the slim image needs no curl. start-period covers model load on boot.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD ["python", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/', timeout=2).status == 200 else 1)"]
+    CMD ["python", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health/ready', timeout=2).status == 200 else 1)"]
 
-# Single-process uvicorn for now; Phase 0 item 3 swaps this for
-# gunicorn + uvicorn workers for process-level concurrency.
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+# gunicorn manages a pool of uvicorn workers for process-level concurrency on top
+# of the per-process threadpool. Worker count, bind address, timeouts and log
+# level are all env-driven (see gunicorn_conf.py); WEB_CONCURRENCY sets workers.
+CMD ["gunicorn", "app:app", "-c", "gunicorn_conf.py"]
