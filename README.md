@@ -8,8 +8,10 @@ This project is a sentiment analysis project using the Amazon Book Reviews datas
 
 - **Model Development**: Develop machine learning models using scikit-learn.
 - **API Development**: Deploy models with a FastAPI backend.
-- **Monitoring**: Implement monitoring using prometheus_fastapi_instrumentator.
-- **Containerisation**: Containerize a FastAPI application using Docker.
+- **Monitoring**: Implement monitoring using prometheus_fastapi_instrumentator,
+  plus `/health/live` and `/health/ready` probes and structured JSON logging.
+- **Containerisation**: Containerize a FastAPI application using Docker, served
+  by gunicorn-managed uvicorn workers for process-level concurrency.
 
 ## Setup Instructions
 
@@ -20,11 +22,22 @@ This project is a sentiment analysis project using the Amazon Book Reviews datas
    ```
 
 2. **Install Dependencies**:
-   - Create and activate a virtual environment.
-   - Install the required packages:
-     ```bash
-     pip install -r requirements.txt
-     ```
+
+   Dependencies are managed with [uv](https://docs.astral.sh/uv/). A single
+   `pyproject.toml` is the source of truth and `uv.lock` pins every package
+   (and transitive dependency) to an exact, reproducible version. The pinned
+   Python interpreter is recorded in `.python-version`.
+
+   ```bash
+   # Creates a .venv at the pinned Python, installs runtime + dev deps from the lock
+   uv sync
+
+   # Add the training/data-prep deps too (needed to run the pipelines below)
+   uv sync --group training
+   ```
+
+   Prefix commands with `uv run` to execute them inside the synced environment
+   (e.g. `uv run python app.py`), or activate `.venv` directly.
 3. **Train the model locally**:
    - Create a .env file with the following variables:
       ```
@@ -58,12 +71,44 @@ This project is a sentiment analysis project using the Amazon Book Reviews datas
    ```
 
    Run it (from the same directory used for training, so the SQLite store
-   resolves to the same file):
+   resolves to the same file).
+
+   **Development** — single process with auto-reload:
 
      ```bash
      cd sentiment_analysis_project/sentimentanalysis
      python app.py
      ```
+
+   **Production-style** — gunicorn managing uvicorn workers (process-level
+   concurrency on top of the per-request threadpool). This is what the Docker
+   image runs:
+
+     ```bash
+     cd sentiment_analysis_project/sentimentanalysis
+     gunicorn app:app -c gunicorn_conf.py
+     ```
+
+   Everything is configured through the environment (see `gunicorn_conf.py`):
+
+   | Variable | Default | Purpose |
+   |----------|---------|---------|
+   | `WEB_CONCURRENCY` | `(2*CPU)+1` | number of worker processes |
+   | `HOST` / `PORT` | `0.0.0.0` / `8000` | bind address |
+   | `LOG_LEVEL` | `INFO` | log level (logs are JSON on stdout) |
+   | `GRACEFUL_TIMEOUT` | `30` | seconds to drain in-flight requests on SIGTERM |
+
+   > **Local SQLite caveat:** the bundled `sqlite:///mlflow.db` store cannot be
+   > migrated by several workers booting at once (they race the one-time schema
+   > upgrade). When pointing at the local SQLite store, run a single worker
+   > (`WEB_CONCURRENCY=1`). A database-backed store (Phase 1, see
+   > `docs/enterprise-infra-plan.md`) removes this limitation.
+
+   The app exposes two health probes for orchestrators:
+
+   - `GET /health/live` — liveness; 200 whenever the process is up.
+   - `GET /health/ready` — readiness; 200 only after the model has loaded, 503
+     otherwise (so traffic is routed only to replicas that can serve).
 
 ## Demo
 
@@ -71,8 +116,10 @@ With the application running (see step 4), try it out from another terminal.
 The server listens on `http://127.0.0.1:8000` by default.
 
 ```bash
-# Health check
+# Health checks
 curl -s http://127.0.0.1:8000/
+curl -s http://127.0.0.1:8000/health/live
+curl -s http://127.0.0.1:8000/health/ready
 
 # Predictions
 curl -s -X POST http://127.0.0.1:8000/predict \
@@ -102,13 +149,43 @@ curl -s http://127.0.0.1:8000/metrics | grep http_request
 
 Interactive API docs are also available at `http://127.0.0.1:8000/docs`.
 
+## Running in Docker
+
+The service ships as a multi-stage, non-root image. **Build from the repository
+root** (the build context needs `pyproject.toml` / `uv.lock`):
+
+```bash
+docker build -t sentiment-analysis:local .
+```
+
+The build installs the exact locked dependencies (`uv sync --frozen`) into a
+virtualenv in a builder stage and copies only that venv plus the application
+source into the final image — `mlruns/`, `mlflow.db`, `data/`, `.git`, and caches
+are excluded via `.dockerignore`.
+
+The container runs `gunicorn app:app -c gunicorn_conf.py` (gunicorn + uvicorn
+workers); its Docker `HEALTHCHECK` polls `/health/ready`. The image does **not**
+bake in a model; it loads one at runtime from the MLflow registry you point it
+at, so supply the registry config as environment:
+
+```bash
+docker run --rm -p 8000:8000 \
+  -e MLFLOW_TRACKING_URI=<your-tracking-uri> \
+  -e MODEL_NAME=sentiment_analysis_clf \
+  -e MODEL_ALIAS=champion \
+  -e WEB_CONCURRENCY=4 \
+  sentiment-analysis:local
+```
+
+(A self-contained local stack with a tracking server comes in a later phase; see
+`docs/enterprise-infra-plan.md`.)
+
 ## Testing
 
-Run tests using pytest:
+Run tests using pytest (dev dependencies are installed by `uv sync`):
 ```bash
-pip install -r requirements_dev.txt
 cd sentiment_analysis_project
-pytest
+uv run pytest
 ```
 
 ## Development

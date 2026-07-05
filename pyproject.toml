@@ -1,0 +1,58 @@
+[project]
+name = "sentiment-analysis-project"
+version = "0.1.0"
+description = "Sentiment analysis service: scikit-learn model served behind FastAPI, with the model loaded from the MLflow Model Registry."
+readme = "README.md"
+# Single pinned interpreter floor. The serving image, CI, and local dev all run
+# 3.12 so resolution and wheels are identical everywhere (see .python-version).
+requires-python = ">=3.12"
+
+# --- Serving runtime ---------------------------------------------------------
+# Exactly what the FastAPI app needs to start and serve /predict. Kept lean so
+# the production image stays small; the exact versions are frozen in uv.lock.
+# Floors are set to the versions the model registry was trained/validated
+# against — notably scikit-learn, whose version must match training because the
+# app unpickles the model via mlflow.sklearn.load_model().
+dependencies = [
+    "fastapi>=0.136.3",
+    "uvicorn[standard]>=0.49.0",
+    # Process manager for production: gunicorn forks N worker processes for
+    # process-level concurrency on top of the per-process threadpool. uvicorn-worker
+    # provides the ASGI worker class (the maintained replacement for the now
+    # deprecated `uvicorn.workers` module). gunicorn was previously only present
+    # transitively via mlflow; pin it directly since serving depends on it.
+    "gunicorn>=23.0.0",
+    "uvicorn-worker>=0.4.0",
+    "pydantic>=2.13.4",
+    "mlflow>=3.13.0",
+    "scikit-learn>=1.9.0",
+    "pandas>=2.3.3",
+    "numpy>=2.4.6",
+    "prometheus-fastapi-instrumentator>=7.0.0",
+]
+
+[dependency-groups]
+# Test + lint tooling. Installed by default with `uv sync`; excluded from the
+# production export/image.
+dev = [
+    "pytest",
+    "pytest-cov",
+    "pytest-asyncio",
+    "pytest-mock",
+    "coverage",
+    "black",
+    "isort",
+    "httpx",
+]
+# Needed only to *run* the training / data-prep pipelines (they call
+# dotenv.load_dotenv); the serving app reads config straight from the
+# environment and does not need this. Install with `uv sync --group training`.
+training = [
+    "python-dotenv",
+]
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"

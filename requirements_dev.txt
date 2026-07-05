@@ -1,9 +1,0 @@
--r requirements.txt
-pytest
-pytest-cov
-pytest-asyncio
-coverage
-black
-pytest-mock
-isort
-httpx
